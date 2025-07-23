@@ -23,6 +23,7 @@ interface AuthState {
   updatePassword: (newPassword: string) => Promise<{ success: boolean }>;
 }
 
+const AuthContext = createContext<AuthState | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
@@ -38,6 +39,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         } else if (session?.user) {
           await fetchUserProfile(session.user);
         } else {
+          setUser(null);
         }
       } catch (error) {
         console.error('Auth initialization error:', error);
@@ -73,7 +75,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       const { data, error } = await supabase
         .from('users')
         .select('*')
-        throw insertError;
+        .eq('id', authUser.id)
         .single();
 
       if (data) {
@@ -96,9 +98,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           .insert({
             id: authUser.id,
             first_name: firstName,
-      
-      // Registration successful
-      console.log('Registration successful for:', email);
             last_name: lastName,
             email: authUser.email || '',
             phone: authUser.user_metadata?.phone || null,
@@ -231,6 +230,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
         // Send welcome email (you can implement this later)
         console.log('Welcome email would be sent to:', email);
+        // Registration successful
+        console.log('Registration successful for:', email);
       } else {
         throw new Error('Registration failed - no user data received');
       }
@@ -313,8 +314,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 };
 
 export const useAuth = () => {
+  const context = useContext(AuthContext);
+  if (context === undefined) {
     // Don't throw error to prevent login failure
+    setUser(null);
   }
   return context;
 };
-    setUser(null);
