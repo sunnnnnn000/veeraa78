@@ -46,7 +46,8 @@ const Login: React.FC = () => {
     
     try {
       await login(formData.email, formData.password);
-      navigate('/');
+      // Navigation will be handled by the auth state change
+      console.log('Login successful, waiting for auth state change...');
     } catch (error: any) {
       console.error('Login error:', error);
       setError(error.message || 'Invalid email or password. Please try again.');

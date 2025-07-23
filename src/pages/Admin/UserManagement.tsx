@@ -45,6 +45,7 @@ interface User {
 const UserManagement: React.FC = () => {
   const [users, setUsers] = useState<User[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string>('');
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -56,6 +57,7 @@ const UserManagement: React.FC = () => {
   const fetchUsers = async () => {
     try {
       setIsLoading(true);
+      setError('');
       const { data, error } = await supabase
         .from('users')
         .select(`
@@ -81,12 +83,15 @@ const UserManagement: React.FC = () => {
 
       if (error) {
         console.error('Error fetching users:', error);
+        setError('Failed to fetch users: ' + error.message);
         setUsers([]);
       } else {
         setUsers(data || []);
+        console.log('Users loaded successfully:', (data || []).length);
       }
     } catch (error) {
       console.error('Error fetching users:', error);
+      setError('Failed to fetch users. Please try again.');
       setUsers([]);
     } finally {
       setIsLoading(false);
@@ -154,6 +159,22 @@ const UserManagement: React.FC = () => {
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
           <p className="text-gray-600">Loading users...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+            {error}
+          </div>
+          <button 
+            onClick={fetchUsers}
+            className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
+          </button>
         </div>
       </div>
     );

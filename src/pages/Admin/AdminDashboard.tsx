@@ -46,6 +46,7 @@ const AdminDashboard: React.FC = () => {
   });
   const [recentOrders, setRecentOrders] = useState<Order[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string>('');
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
 
@@ -56,6 +57,7 @@ const AdminDashboard: React.FC = () => {
   const fetchDashboardData = async () => {
     try {
       setIsLoading(true);
+      setError('');
 
       // Fetch orders with user data
       const { data: orders, error: ordersError } = await supabase
@@ -73,7 +75,7 @@ const AdminDashboard: React.FC = () => {
 
       if (ordersError) {
         console.error('Orders fetch error:', ordersError);
-        // Continue with empty orders instead of throwing
+        setError('Failed to fetch orders: ' + ordersError.message);
       }
 
       // Fetch all orders for stats
@@ -83,7 +85,7 @@ const AdminDashboard: React.FC = () => {
 
       if (allOrdersError) {
         console.error('All orders fetch error:', allOrdersError);
-        // Continue with empty orders
+        setError('Failed to fetch order statistics: ' + allOrdersError.message);
       }
 
       // Fetch users count
@@ -93,7 +95,7 @@ const AdminDashboard: React.FC = () => {
 
       if (usersError) {
         console.error('Users count fetch error:', usersError);
-        // Continue with 0 count
+        setError('Failed to fetch user count: ' + usersError.message);
       }
 
       // Calculate stats
@@ -108,8 +110,15 @@ const AdminDashboard: React.FC = () => {
       });
 
       setRecentOrders(orders || []);
+      
+      console.log('Dashboard data loaded successfully:', {
+        ordersCount: (orders || []).length,
+        statsCount: (allOrders || []).length,
+        usersCount: usersCount || 0
+      });
     } catch (error) {
       console.error('Error fetching dashboard data:', error);
+      setError('Failed to load dashboard data. Please try again.');
       // Set default values on error
       setStats({
         totalOrders: 0,
@@ -149,6 +158,24 @@ const AdminDashboard: React.FC = () => {
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
           <p className="text-gray-600">Loading dashboard...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+            {error}
+          </div>
+          <button 
+            onClick={fetchDashboardData}
+            className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
+          >
+            Retry
+          </button>
         </div>
       </div>
     );

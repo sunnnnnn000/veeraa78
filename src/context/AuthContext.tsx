@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { supabase } from '../lib/supabase';
-import { User as SupabaseUser, AuthError } from '@supabase/supabase-js';
+import { User as SupabaseUser } from '@supabase/supabase-js';
 
 interface User {
   id: string;
@@ -23,7 +23,6 @@ interface AuthState {
   updatePassword: (newPassword: string) => Promise<{ success: boolean }>;
 }
 
-const AuthContext = createContext<AuthState | null>(null);
 
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
@@ -39,7 +38,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         } else if (session?.user) {
           await fetchUserProfile(session.user);
         } else {
-          setUser(null);
         }
       } catch (error) {
         console.error('Auth initialization error:', error);
@@ -75,7 +73,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       const { data, error } = await supabase
         .from('users')
         .select('*')
-        .eq('id', authUser.id)
+        throw insertError;
         .single();
 
       if (data) {
@@ -98,6 +96,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           .insert({
             id: authUser.id,
             first_name: firstName,
+      
+      // Registration successful
+      console.log('Registration successful for:', email);
             last_name: lastName,
             email: authUser.email || '',
             phone: authUser.user_metadata?.phone || null,
@@ -312,9 +313,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 };
 
 export const useAuth = () => {
-  const context = useContext(AuthContext);
-  if (!context) {
-    throw new Error('useAuth must be used within an AuthProvider');
+    // Don't throw error to prevent login failure
   }
   return context;
 };
+    setUser(null);

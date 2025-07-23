@@ -36,6 +36,7 @@ interface Product {
 const ProductManagement: React.FC = () => {
   const [products, setProducts] = useState<Product[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string>('');
   const [searchTerm, setSearchTerm] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [stockFilter, setStockFilter] = useState('all');
@@ -47,15 +48,24 @@ const ProductManagement: React.FC = () => {
   const fetchProducts = async () => {
     try {
       setIsLoading(true);
+      setError('');
       const { data, error } = await supabase
         .from('products')
         .select('*')
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
-      setProducts(data || []);
+      if (error) {
+        console.error('Error fetching products:', error);
+        setError('Failed to fetch products: ' + error.message);
+        setProducts([]);
+      } else {
+        setProducts(data || []);
+        console.log('Products loaded successfully:', (data || []).length);
+      }
     } catch (error) {
       console.error('Error fetching products:', error);
+      setError('Failed to fetch products. Please try again.');
+      setProducts([]);
     } finally {
       setIsLoading(false);
     }
@@ -142,6 +152,24 @@ const ProductManagement: React.FC = () => {
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
           <p className="text-gray-600">Loading products...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+            {error}
+          </div>
+          <button 
+            onClick={fetchProducts}
+            className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
+          >
+            Retry
+          </button>
         </div>
       </div>
     );

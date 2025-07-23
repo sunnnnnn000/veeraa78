@@ -46,6 +46,7 @@ interface Order {
 const OrderManagement: React.FC = () => {
   const [orders, setOrders] = useState<Order[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string>('');
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
@@ -59,6 +60,7 @@ const OrderManagement: React.FC = () => {
   const fetchOrders = async () => {
     try {
       setIsLoading(true);
+      setError('');
       const { data, error } = await supabase
         .from('orders')
         .select(`
@@ -81,12 +83,15 @@ const OrderManagement: React.FC = () => {
 
       if (error) {
         console.error('Error fetching orders:', error);
+        setError('Failed to fetch orders: ' + error.message);
         setOrders([]);
       } else {
         setOrders(data || []);
+        console.log('Orders loaded successfully:', (data || []).length);
       }
     } catch (error) {
       console.error('Error fetching orders:', error);
+      setError('Failed to fetch orders. Please try again.');
       setOrders([]);
     } finally {
       setIsLoading(false);
@@ -167,6 +172,24 @@ const OrderManagement: React.FC = () => {
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
           <p className="text-gray-600">Loading orders...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+            {error}
+          </div>
+          <button 
+            onClick={fetchOrders}
+            className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
+          >
+            Retry
+          </button>
         </div>
       </div>
     );

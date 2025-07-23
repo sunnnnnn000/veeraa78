@@ -129,7 +129,7 @@ const Register: React.FC = () => {
         formData.phone,
         formData.password
       );
-      // After successful registration, automatically log in
+      // After successful registration, redirect to login
       navigate('/login', {
         state: {
           message: 'Registration successful! Please login with your new account.'

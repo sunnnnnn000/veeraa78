@@ -17,7 +17,40 @@ import { useAuth } from '../../context/AuthContext';
 const AdminLayout: React.FC = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const location = useLocation();
-  const { logout } = useAuth();
+  const { logout, user, isAuthenticated } = useAuth();
+
+  // Simple admin check - you can enhance this with proper role-based access
+  const isAdmin = user?.email === 'admin@falconlifestyle.com' || 
+                  user?.email === 'admin@admin.com' ||
+                  user?.email?.includes('admin');
+
+  if (!isAuthenticated) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold text-gray-900 mb-4">Access Denied</h1>
+          <p className="text-gray-600 mb-4">Please login to access the admin panel</p>
+          <a href="/login" className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">
+            Login
+          </a>
+        </div>
+      </div>
+    );
+  }
+
+  if (!isAdmin) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold text-gray-900 mb-4">Access Denied</h1>
+          <p className="text-gray-600 mb-4">You don't have permission to access the admin panel</p>
+          <a href="/" className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">
+            Go Home
+          </a>
+        </div>
+      </div>
+    );
+  }
 
   const navigation = [
     { name: 'Dashboard', href: '/admin', icon: LayoutDashboard },
