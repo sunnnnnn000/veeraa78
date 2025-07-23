@@ -9,10 +9,10 @@ const Login: React.FC = () => {
     password: ''
   });
   const [showPassword, setShowPassword] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
-  const { login, isAuthenticated } = useAuth();
+  const { login, isAuthenticated, isLoading } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -21,12 +21,15 @@ const Login: React.FC = () => {
     if (location.state?.message) {
       setSuccessMessage(location.state.message);
     }
+  }, [location.state]);
 
+  useEffect(() => {
     // Redirect if already authenticated
-    if (isAuthenticated) {
-      navigate('/');
+    if (isAuthenticated && !isLoading) {
+      console.log('User is authenticated, redirecting to home...');
+      navigate('/', { replace: true });
     }
-  }, [isAuthenticated, navigate, location.state]);
+  }, [isAuthenticated, isLoading, navigate]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -36,25 +39,41 @@ const Login: React.FC = () => {
     }));
     // Clear error when user starts typing
     if (error) setError('');
+    if (successMessage) setSuccessMessage('');
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsLoading(true);
+    
+    if (isSubmitting || isLoading) return;
+    
+    setIsSubmitting(true);
     setError('');
     setSuccessMessage('');
     
     try {
+      console.log('Submitting login form...');
       await login(formData.email, formData.password);
-      // Navigation will be handled by the auth state change
-      console.log('Login successful, waiting for auth state change...');
+      console.log('Login successful, waiting for redirect...');
+      // Don't navigate here, let the useEffect handle it
     } catch (error: any) {
       console.error('Login error:', error);
       setError(error.message || 'Invalid email or password. Please try again.');
-    } finally {
-      setIsLoading(false);
+      setIsSubmitting(false);
     }
   };
+
+  // Show loading spinner while checking auth state
+  if (isLoading && !error) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
@@ -105,6 +124,7 @@ const Login: React.FC = () => {
                   className="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   placeholder="Enter your email"
                   required
+                  disabled={isSubmitting}
                 />
               </div>
             </div>
@@ -125,11 +145,13 @@ const Login: React.FC = () => {
                   className="block w-full pl-10 pr-10 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   placeholder="Enter your password"
                   required
+                  disabled={isSubmitting}
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
                   className="absolute inset-y-0 right-0 pr-3 flex items-center"
+                  disabled={isSubmitting}
                 >
                   {showPassword ? (
                     <EyeOff className="h-5 w-5 text-gray-400 hover:text-gray-600" />
@@ -145,6 +167,7 @@ const Login: React.FC = () => {
                 <input
                   type="checkbox"
                   className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                  disabled={isSubmitting}
                 />
                 <span className="ml-2 text-sm text-gray-600">Remember me</span>
               </label>
@@ -155,10 +178,17 @@ const Login: React.FC = () => {
 
             <button
               type="submit"
-              disabled={isLoading}
+              disabled={isSubmitting || isLoading}
               className="w-full bg-blue-600 text-white py-3 px-4 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {isLoading ? 'Signing in...' : 'Sign In'}
+              {isSubmitting ? (
+                <div className="flex items-center justify-center">
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                  Signing in...
+                </div>
+              ) : (
+                'Sign In'
+              )}
             </button>
           </form>
 

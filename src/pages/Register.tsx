@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Eye, EyeOff, Mail, Lock, User, Phone, Zap, CheckCircle, X } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
@@ -14,7 +14,7 @@ const Register: React.FC = () => {
   });
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [passwordValidation, setPasswordValidation] = useState({
     length: false,
@@ -23,8 +23,16 @@ const Register: React.FC = () => {
     number: false,
     special: false
   });
-  const { register } = useAuth();
+  const { register, isAuthenticated, isLoading } = useAuth();
   const navigate = useNavigate();
+
+  useEffect(() => {
+    // Redirect if already authenticated
+    if (isAuthenticated && !isLoading) {
+      console.log('User is authenticated, redirecting to home...');
+      navigate('/', { replace: true });
+    }
+  }, [isAuthenticated, isLoading, navigate]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -38,6 +46,14 @@ const Register: React.FC = () => {
       setErrors(prev => ({
         ...prev,
         [name]: ''
+      }));
+    }
+
+    // Clear general error
+    if (errors.general) {
+      setErrors(prev => ({
+        ...prev,
+        general: ''
       }));
     }
 
@@ -114,14 +130,17 @@ const Register: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
+    if (isSubmitting || isLoading) return;
+    
     if (!validateForm()) {
       return;
     }
 
-    setIsLoading(true);
+    setIsSubmitting(true);
     setErrors({});
     
     try {
+      console.log('Submitting registration form...');
       await register(
         formData.firstName,
         formData.lastName,
@@ -129,6 +148,8 @@ const Register: React.FC = () => {
         formData.phone,
         formData.password
       );
+      
+      console.log('Registration successful, redirecting to login...');
       // After successful registration, redirect to login
       navigate('/login', {
         state: {
@@ -138,14 +159,25 @@ const Register: React.FC = () => {
     } catch (error: any) {
       console.error('Registration error:', error);
       setErrors({ general: error.message || 'Registration failed. Please try again.' });
-    } finally {
-      setIsLoading(false);
+      setIsSubmitting(false);
     }
   };
 
   const isPasswordValid = Object.values(passwordValidation).every(Boolean);
   const isFormValid = isPasswordValid && formData.password === formData.confirmPassword && 
                      formData.firstName && formData.lastName && formData.email && formData.phone;
+
+  // Show loading spinner while checking auth state
+  if (isLoading && !errors.general) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
@@ -192,6 +224,7 @@ const Register: React.FC = () => {
                       errors.firstName ? 'border-red-300' : 'border-gray-300'
                     }`}
                     placeholder="First name"
+                    disabled={isSubmitting}
                   />
                 </div>
                 {errors.firstName && (
@@ -216,6 +249,7 @@ const Register: React.FC = () => {
                       errors.lastName ? 'border-red-300' : 'border-gray-300'
                     }`}
                     placeholder="Last name"
+                    disabled={isSubmitting}
                   />
                 </div>
                 {errors.lastName && (
@@ -241,6 +275,7 @@ const Register: React.FC = () => {
                     errors.email ? 'border-red-300' : 'border-gray-300'
                   }`}
                   placeholder="Enter your email"
+                  disabled={isSubmitting}
                 />
               </div>
               {errors.email && (
@@ -265,6 +300,7 @@ const Register: React.FC = () => {
                     errors.phone ? 'border-red-300' : 'border-gray-300'
                   }`}
                   placeholder="Enter your phone number"
+                  disabled={isSubmitting}
                 />
               </div>
               {errors.phone && (
@@ -289,11 +325,13 @@ const Register: React.FC = () => {
                     errors.password ? 'border-red-300' : 'border-gray-300'
                   }`}
                   placeholder="Create a password"
+                  disabled={isSubmitting}
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
                   className="absolute inset-y-0 right-0 pr-3 flex items-center"
+                  disabled={isSubmitting}
                 >
                   {showPassword ? (
                     <EyeOff className="h-5 w-5 text-gray-400 hover:text-gray-600" />
@@ -352,11 +390,13 @@ const Register: React.FC = () => {
                     errors.confirmPassword ? 'border-red-300' : 'border-gray-300'
                   }`}
                   placeholder="Confirm your password"
+                  disabled={isSubmitting}
                 />
                 <button
                   type="button"
                   onClick={() => setShowConfirmPassword(!showConfirmPassword)}
                   className="absolute inset-y-0 right-0 pr-3 flex items-center"
+                  disabled={isSubmitting}
                 >
                   {showConfirmPassword ? (
                     <EyeOff className="h-5 w-5 text-gray-400 hover:text-gray-600" />
@@ -375,6 +415,7 @@ const Register: React.FC = () => {
                 type="checkbox"
                 className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
                 required
+                disabled={isSubmitting}
               />
               <span className="ml-2 text-sm text-gray-600">
                 I agree to the{' '}
@@ -390,10 +431,17 @@ const Register: React.FC = () => {
 
             <button
               type="submit"
-              disabled={isLoading || !isFormValid}
+              disabled={isSubmitting || !isFormValid}
               className="w-full bg-blue-600 text-white py-3 px-4 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {isLoading ? 'Creating Account...' : 'Create Account'}
+              {isSubmitting ? (
+                <div className="flex items-center justify-center">
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                  Creating Account...
+                </div>
+              ) : (
+                'Create Account'
+              )}
             </button>
           </form>
 

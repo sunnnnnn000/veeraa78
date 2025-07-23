@@ -30,22 +30,36 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
+    let mounted = true;
+
     const initializeAuth = async () => {
       try {
+        console.log('Initializing auth...');
         const { data: { session }, error } = await supabase.auth.getSession();
+        
         if (error) {
           console.error('Session error:', error);
-          setUser(null);
-        } else if (session?.user) {
+          if (mounted) {
+            setUser(null);
+            setIsLoading(false);
+          }
+          return;
+        }
+
+        if (session?.user && mounted) {
+          console.log('Found existing session, fetching user profile...');
           await fetchUserProfile(session.user);
-        } else {
+        } else if (mounted) {
+          console.log('No existing session found');
           setUser(null);
+          setIsLoading(false);
         }
       } catch (error) {
         console.error('Auth initialization error:', error);
-        setUser(null);
-      } finally {
-        setIsLoading(false);
+        if (mounted) {
+          setUser(null);
+          setIsLoading(false);
+        }
       }
     };
 
@@ -53,25 +67,36 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      console.log('Auth state changed:', event, session?.user?.email);
+      
+      if (!mounted) return;
+
       try {
         if (event === 'SIGNED_IN' && session?.user) {
-          setUser(null);
+          console.log('User signed in, fetching profile...');
           await fetchUserProfile(session.user);
         } else if (event === 'SIGNED_OUT' || !session?.user) {
+          console.log('User signed out');
           setUser(null);
+          setIsLoading(false);
         }
       } catch (error) {
         console.error('Auth state change error:', error);
         setUser(null);
+        setIsLoading(false);
       }
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
   }, []);
 
   const fetchUserProfile = async (authUser: SupabaseUser) => {
     try {
-      setIsLoading(true);
+      console.log('Fetching user profile for:', authUser.email);
+      
       const { data, error } = await supabase
         .from('users')
         .select('*')
@@ -79,18 +104,23 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         .single();
 
       if (data) {
-        setUser({
+        console.log('User profile found:', data.email);
+        const userData = {
           id: data.id,
           firstName: data.first_name,
           lastName: data.last_name,
           email: data.email,
           phone: data.phone || undefined,
           dateOfBirth: data.date_of_birth || undefined,
-        });
+        };
+        setUser(userData);
+        setIsLoading(false);
+        return userData;
       } else if (error && error.code === 'PGRST116') {
-        // Create user profile if it doesn't exist (for Google login)
+        console.log('User profile not found, creating new profile...');
+        // Create user profile if it doesn't exist
         const names = authUser.user_metadata?.full_name?.split(' ') || ['', ''];
-        const firstName = names[0] || '';
+        const firstName = names[0] || authUser.email?.split('@')[0] || 'User';
         const lastName = names.slice(1).join(' ') || '';
 
         const { data: newUser, error: insertError } = await supabase
@@ -107,17 +137,21 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
         if (insertError) {
           console.error('Error creating user profile:', insertError);
-          return;
+          throw insertError;
         }
 
         if (newUser) {
-          setUser({
+          console.log('New user profile created:', newUser.email);
+          const userData = {
             id: newUser.id,
             firstName: newUser.first_name,
             lastName: newUser.last_name,
             email: newUser.email,
             phone: newUser.phone || undefined,
-          });
+          };
+          setUser(userData);
+          setIsLoading(false);
+          return userData;
         }
       } else if (error) {
         console.error('Error fetching user profile:', error);
@@ -125,54 +159,63 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       }
     } catch (error) {
       console.error('Error in fetchUserProfile:', error);
-      throw error;
-    } finally {
+      setUser(null);
       setIsLoading(false);
+      throw error;
     }
   };
 
   const login = async (email: string, password: string) => {
-    setIsLoading(true);
-    setUser(null);
-    
     try {
+      console.log('Attempting login for:', email);
+      setIsLoading(true);
+      
       const { data, error } = await supabase.auth.signInWithPassword({
-        email,
+        email: email.trim(),
         password,
       });
 
       if (error) {
         console.error('Login error:', error);
+        setIsLoading(false);
         throw new Error(error.message || 'Login failed');
       }
 
-      if (data.user) {
-        await fetchUserProfile(data.user);
-      } else {
+      if (!data.user) {
+        console.error('No user data received');
+        setIsLoading(false);
         throw new Error('Login failed - no user data received');
       }
+
+      console.log('Login successful for:', email);
+      // The auth state change listener will handle setting the user
+      // Don't set loading to false here, let the auth state change handle it
+      
     } catch (error: any) {
       console.error('Login error:', error);
-      throw error;
-    } finally {
       setIsLoading(false);
+      throw error;
     }
   };
 
   const logout = async () => {
-    setIsLoading(true);
     try {
+      console.log('Logging out...');
+      setIsLoading(true);
+      
       const { error } = await supabase.auth.signOut();
       if (error) {
         console.error('Logout error:', error);
         throw new Error(error.message || 'Logout failed');
       }
+      
+      console.log('Logout successful');
       setUser(null);
+      setIsLoading(false);
     } catch (error: any) {
       console.error('Logout error:', error);
-      throw error;
-    } finally {
       setIsLoading(false);
+      throw error;
     }
   };
 
@@ -183,63 +226,77 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     phone: string,
     password: string
   ) => {
-    setIsLoading(true);
     try {
+      console.log('Attempting registration for:', email);
+      setIsLoading(true);
+
+      // First check if user already exists
+      const { data: existingUser } = await supabase
+        .from('users')
+        .select('email')
+        .eq('email', email.trim())
+        .single();
+
+      if (existingUser) {
+        setIsLoading(false);
+        throw new Error('This email address is already registered. Please try logging in instead.');
+      }
+
       // Sign up with Supabase Auth
       const { data: authData, error: authError } = await supabase.auth.signUp({
-        email,
+        email: email.trim(),
         password,
         options: {
           data: {
-            first_name: firstName,
-            last_name: lastName,
-            phone: phone
+            first_name: firstName.trim(),
+            last_name: lastName.trim(),
+            phone: phone.trim()
           }
         }
       });
 
       if (authError) {
         console.error('Auth signup error:', authError);
+        setIsLoading(false);
         if (authError.message.includes('already registered')) {
           throw new Error('This email address is already registered. Please try logging in instead.');
         }
         throw new Error(authError.message || 'Registration failed');
       }
 
-      if (authData.user) {
-        try {
-          // Create user profile in our users table
-          const { error: profileError } = await supabase
-            .from('users')
-            .insert({
-              id: authData.user.id,
-              first_name: firstName,
-              last_name: lastName,
-              email,
-              phone,
-            });
-
-          if (profileError) {
-            console.error('Profile creation error:', profileError);
-            // Continue anyway as auth user was created
-          }
-        } catch (profileError) {
-          console.error('Profile creation failed:', profileError);
-          // Continue anyway as auth user was created
-        }
-
-        // Send welcome email (you can implement this later)
-        console.log('Welcome email would be sent to:', email);
-        // Registration successful
-        console.log('Registration successful for:', email);
-      } else {
+      if (!authData.user) {
+        setIsLoading(false);
         throw new Error('Registration failed - no user data received');
       }
+
+      console.log('Auth registration successful, creating user profile...');
+
+      // Create user profile in our users table
+      const { error: profileError } = await supabase
+        .from('users')
+        .insert({
+          id: authData.user.id,
+          first_name: firstName.trim(),
+          last_name: lastName.trim(),
+          email: email.trim(),
+          phone: phone.trim(),
+        });
+
+      if (profileError) {
+        console.error('Profile creation error:', profileError);
+        // Don't throw error here, auth user was created successfully
+      }
+
+      console.log('Registration successful for:', email);
+      setIsLoading(false);
+      
+      // Send welcome email (you can implement this later)
+      console.log('Welcome email would be sent to:', email);
+      
     } catch (error: any) {
       console.error('Registration error:', error);
-      throw error;
-    } finally {
       setIsLoading(false);
+      throw error;
     }
   };
 
@@ -296,18 +353,20 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   };
 
+  const contextValue = {
+    user,
+    isAuthenticated: !!user,
+    isLoading,
+    login,
+    logout,
+    register,
+    updateUser,
+    resetPassword,
+    updatePassword
+  };
+
   return (
-    <AuthContext.Provider value={{
-      user,
-      isAuthenticated: !!user,
-      isLoading,
-      login,
-      logout,
-      register,
-      updateUser,
-      resetPassword,
-      updatePassword
-    }}>
+    <AuthContext.Provider value={contextValue}>
       {children}
     </AuthContext.Provider>
   );
@@ -316,8 +375,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 export const useAuth = () => {
   const context = useContext(AuthContext);
   if (context === undefined) {
-    // Don't throw error to prevent login failure
-    setUser(null);
+    throw new Error('useAuth must be used within an AuthProvider');
   }
   return context;
 };

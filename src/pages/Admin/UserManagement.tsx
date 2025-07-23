@@ -11,7 +11,8 @@ import {
   Phone,
   Calendar,
   MapPin,
-  Package
+  Package,
+  X
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 
@@ -174,6 +175,8 @@ const UserManagement: React.FC = () => {
           <button 
             onClick={fetchUsers}
             className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
+          >
+            Try Again
           </button>
         </div>
       </div>
